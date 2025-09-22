@@ -12,6 +12,55 @@ const defaultSections = {
   beurteilungLaien: '',
 }
 
+// Preset analysis prompts for ChatGPT evaluation
+export const ANALYSIS_PROMPT_PRESETS = {
+  standard: `
+  Ich bin Radiologie mit 30 Jahren Berufserfahrung. 
+  Im Folgenden benötige ich Hilfe bei der Erstellung von radiologischen 
+  Befundberichten, bestehend aus Befund und Beurteilung.
+   Ich werde dir jeweils immer die Modalität (Röntgen, CT oder MRT), 
+   die Körperregion, die Kontrastmittelphase(n) (falls vorhanden), 
+   die klinische Fragestellung und auffällige Pathologien als Audioeingabe 
+   nennen. Im Folgenden bitte ich dich anhand dieser Angaben einen 
+   vollständigen radiologischen Befund mit auf die Fragestellung angepasster 
+   Beurteilung zu erstellen. Alle nicht pathologischen Veränderungen sollen 
+   entsprechend eines Normalbefundes ergänzt werden.  
+  
+  Du bist ein medizinisches Assistenzsystem. Analysiere das folgende transkribierte 
+  Arzt-Patient:innengespräch oder radiologische Beschreibung und erstelle GENAU die folgenden sieben Abschnitte, 
+  ausschließlich auf Deutsch. Antworte NUR als JSON-Objekt ohne zusätzliche Erklärungen.
+
+Felder:
+- anamnese
+- klinischeFragestellung
+- untersuchungsart
+- befund
+- beurteilung
+- befundLaien
+- beurteilungLaien
+
+Richtlinien:
+- Sei präzise, fachlich korrekt und konsistent.
+- Wenn Informationen fehlen, schreibe "k. A.".
+- In den Laien-Varianten nutze klare, leicht verständliche Sprache.`,
+  concise: `Du bist ein radiologisches Assistenzsystem. Erstelle aus dem folgenden Transkript GENAU die sieben Felder unten als JSON (ohne weitere Erklärungen), ausschließlich auf Deutsch.
+
+Felder:
+- anamnese
+- klinischeFragestellung
+- untersuchungsart
+- befund
+- beurteilung
+- befundLaien
+- beurteilungLaien
+
+Richtlinien:
+- Fasse dich kurz und fokussiere klinisch Relevantes.
+- Begrenze jedes Feld auf 3–5 knappe Sätze.
+- Fehlen Informationen, trage "k. A." ein.
+- Laien-Felder: einfache, klare Sprache ohne Fachjargon.`,
+}
+
 const defaultState = {
   apiKey: '',
   rememberApiKey: true,
@@ -21,6 +70,8 @@ const defaultState = {
   progress: 0,
   status: 'idle', // idle | recording | uploading | transcribing | analyzing | complete | error
   error: null,
+  analysisPromptMode: 'standard', // 'standard' | 'concise' | 'custom'
+  customAnalysisPrompt: '',
 }
 
 const AppContext = createContext(null)
@@ -97,7 +148,11 @@ export function AppProvider({ children }) {
 
       // Step 2: Analysis with specific prompt
       update({ progress: 60, status: 'analyzing' })
-      const sections = await analyzeTranscript(transcript, state.apiKey)
+      const systemPrompt =
+        (state.analysisPromptMode === 'custom' && state.customAnalysisPrompt?.trim())
+          ? state.customAnalysisPrompt.trim()
+          : (ANALYSIS_PROMPT_PRESETS[state.analysisPromptMode] || ANALYSIS_PROMPT_PRESETS.standard)
+      const sections = await analyzeTranscript(transcript, state.apiKey, systemPrompt)
       update({ sections, progress: 100, status: 'complete' })
     } catch (err) {
       console.error(err)
@@ -163,36 +218,7 @@ async function transcribeWithWhisper(blob, apiKey) {
   return data.text || ''
 }
 
-async function analyzeTranscript(transcript, apiKey) {
-  const system = `
-  Ich bin Radiologie mit 30 Jahren Berufserfahrung. 
-  Im Folgenden benötige ich Hilfe bei der Erstellung von radiologischen 
-  Befundberichten, bestehend aus Befund und Beurteilung.
-   Ich werde dir jeweils immer die Modalität (Röntgen, CT oder MRT), 
-   die Körperregion, die Kontrastmittelphase(n) (falls vorhanden), 
-   die klinische Fragestellung und auffällige Pathologien als Audioeingabe 
-   nennen. Im Folgenden bitte ich dich anhand dieser Angaben einen 
-   vollständigen radiologischen Befund mit auf die Fragestellung angepasster 
-   Beurteilung zu erstellen. Alle nicht pathologischen Veränderungen sollen 
-   entsprechend eines Normalbefundes ergänzt werden.  
-  
-  Du bist ein medizinisches Assistenzsystem. Analysiere das folgende transkribierte 
-  Arzt-Patient:innengespräch oder radiologische Beschreibung und erstelle GENAU die folgenden sieben Abschnitte, 
-  ausschließlich auf Deutsch. Antworte NUR als JSON-Objekt ohne zusätzliche Erklärungen.
-
-Felder:
-- anamnese
-- klinischeFragestellung
-- untersuchungsart
-- befund
-- beurteilung
-- befundLaien
-- beurteilungLaien
-
-Richtlinien:
-- Sei präzise, fachlich korrekt und konsistent.
-- Wenn Informationen fehlen, schreibe "k. A.".
-- In den Laien-Varianten nutze klare, leicht verständliche Sprache.`
+async function analyzeTranscript(transcript, apiKey, system) {
   const user = `Transkript:\n\n${transcript}`
 
   const body = {

@@ -17,7 +17,10 @@ export default function ParagraphsForm() {
   return (
     <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
       {fields.map(({ key, label }) => (
-        <div key={key} className="flex flex-col">
+        <div
+          key={key}
+          className={`flex flex-col ${key === 'untersuchungsart' ? 'md:col-span-2' : ''}`}
+        >
           <label className="text-sm text-aureum-yellow font-semibold mb-2">{label}</label>
           <textarea
             rows={6}
@@ -31,4 +34,3 @@ export default function ParagraphsForm() {
     </div>
   )
 }
-
