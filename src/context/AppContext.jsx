@@ -61,6 +61,12 @@ Richtlinien:
 - Laien-Felder: einfache, klare Sprache ohne Fachjargon.`,
 }
 
+// Preferred models (with safe fallbacks)
+const ANALYSIS_MODEL_PRIMARY = 'gpt-5'
+const ANALYSIS_MODEL_FALLBACK = 'gpt-4o-mini'
+const TRANSCRIBE_MODEL_PRIMARY = 'gpt-5-transcribe'
+const TRANSCRIBE_MODEL_FALLBACK = 'whisper-1'
+
 const defaultState = {
   apiKey: '',
   rememberApiKey: true,
@@ -72,6 +78,7 @@ const defaultState = {
   error: null,
   analysisPromptMode: 'standard', // 'standard' | 'concise' | 'custom'
   customAnalysisPrompt: '',
+  consentAccepted: false,
 }
 
 const AppContext = createContext(null)
@@ -80,7 +87,11 @@ export function AppProvider({ children }) {
   const [state, setState] = useState(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY)
-      if (raw) return JSON.parse(raw)
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        // Merge with defaults to ensure new fields get defaults
+        return { ...defaultState, ...parsed }
+      }
     } catch {}
     return { ...defaultState }
   })
@@ -171,6 +182,7 @@ export function AppProvider({ children }) {
     setSection,
     processAudio,
     defaultSections,
+    acceptConsent: () => update({ consentAccepted: true }),
   }), [state, update, reset, setApiKey, setAudioFromBlob, setAudioFromFile, removeAudio, setSection, processAudio])
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>
@@ -198,54 +210,74 @@ async function dataURLToBlob(dataUrl) {
 }
 
 async function transcribeWithWhisper(blob, apiKey) {
-  const form = new FormData()
-  const file = new File([blob], 'audio.webm', { type: blob.type || 'audio/webm' })
-  form.append('file', file)
-  form.append('model', 'whisper-1')
-  form.append('response_format', 'json')
-  // Optional: form.append('language', 'de')
+  const tryModel = async (model) => {
+    const form = new FormData()
+    const file = new File([blob], 'audio.webm', { type: blob.type || 'audio/webm' })
+    form.append('file', file)
+    form.append('model', model)
+    form.append('response_format', 'json')
+    // Optional: set explicit language for better accuracy
+    // form.append('language', 'de')
 
-  const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}` },
-    body: form,
-  })
-  if (!res.ok) {
-    const t = await safeText(res)
-    throw new Error(`Transkription fehlgeschlagen (${res.status}): ${t}`)
+    const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: form,
+    })
+    if (!res.ok) {
+      const t = await safeText(res)
+      throw new Error(`Transkription fehlgeschlagen (${res.status}): ${t}`)
+    }
+    const data = await res.json()
+    return data.text || ''
   }
-  const data = await res.json()
-  return data.text || ''
+
+  // Try ChatGPT 5 transcription-capable model first, then fallback
+  try {
+    return await tryModel(TRANSCRIBE_MODEL_PRIMARY)
+  } catch (e) {
+    console.warn('Primary transcription model failed, falling back:', e?.message)
+    return await tryModel(TRANSCRIBE_MODEL_FALLBACK)
+  }
 }
 
 async function analyzeTranscript(transcript, apiKey, system) {
   const user = `Transkript:\n\n${transcript}`
 
-  const body = {
-    model: 'gpt-4o-mini',
-    temperature: 0.2,
-    messages: [
-      { role: 'system', content: system },
-      { role: 'user', content: user },
-    ],
+  const postChat = async (model) => {
+    const body = {
+      model,
+      temperature: 0.2,
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+    }
+
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
+    })
+    if (!res.ok) {
+      const t = await safeText(res)
+      throw new Error(`Auswertung fehlgeschlagen (${res.status}): ${t}`)
+    }
+    const data = await res.json()
+    const text = data?.choices?.[0]?.message?.content || ''
+    const json = extractJSON(text)
+    return normalizeSections(json)
   }
 
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(body),
-  })
-  if (!res.ok) {
-    const t = await safeText(res)
-    throw new Error(`Auswertung fehlgeschlagen (${res.status}): ${t}`)
+  try {
+    return await postChat(ANALYSIS_MODEL_PRIMARY)
+  } catch (e) {
+    console.warn('Primary analysis model failed, falling back:', e?.message)
+    return await postChat(ANALYSIS_MODEL_FALLBACK)
   }
-  const data = await res.json()
-  const text = data?.choices?.[0]?.message?.content || ''
-  const json = extractJSON(text)
-  return normalizeSections(json)
 }
 
 function extractJSON(text) {

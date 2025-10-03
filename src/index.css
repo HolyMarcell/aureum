@@ -7,6 +7,13 @@
   color-scheme: dark;
 }
 
+@layer base {
+  /* Default heading color uses the main brand color */
+  h1, h2, h3, h4, h5, h6 {
+    color: theme('colors.aureum.yellow');
+  }
+}
+
 /* Scrollbar subtle dark */
 ::-webkit-scrollbar {
   width: 10px;
@@ -19,4 +26,3 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #4b5563; /* gray-600 */
 }
-

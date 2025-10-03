@@ -58,14 +58,14 @@ export default function RecorderUpload() {
       <div className="flex flex-col sm:flex-row items-center gap-4">
         <button
           onClick={isRecording ? stopRecording : startRecording}
-          className={`w-full sm:w-auto flex-1 text-center text-lg font-semibold rounded-2xl px-6 py-6 transition-colors shadow-lg border ${isRecording ? 'bg-red-600 border-red-500' : 'bg-aureum-yellow text-black border-yellow-400 hover:brightness-110'}`}
+          className={`w-full sm:w-auto flex-1 text-center text-lg font-semibold rounded-2xl px-6 py-6 transition-colors shadow-lg border ${isRecording ? 'bg-red-600 border-red-500' : 'bg-aureum-yellow text-aureum-buttonText border-aureum-yellow hover:brightness-110'}`}
         >
           {isRecording ? 'Aufnahme beenden' : 'Aufnahme starten'}
         </button>
         <button
           onClick={processAudio}
           disabled={!canProcess}
-          className="w-full sm:w-auto flex-1 text-center text-lg font-semibold rounded-2xl px-6 py-6 transition-colors shadow-lg border bg-aureum-yellow text-black border-yellow-400 hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full sm:w-auto flex-1 text-center text-lg font-semibold rounded-2xl px-6 py-6 transition-colors shadow-lg border bg-aureum-yellow text-aureum-buttonText border-aureum-yellow hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Verarbeiten
         </button>

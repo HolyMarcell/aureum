@@ -96,10 +96,9 @@ export default function SettingsDialog({ onClose }) {
 
         <div className="px-4 py-3 border-t border-gray-800 flex items-center justify-end gap-3">
           <button onClick={onClose} className="rounded-md border border-gray-700 px-3 py-1.5 text-sm hover:bg-gray-800">Abbrechen</button>
-          <button onClick={handleSave} className="rounded-md bg-aureum-yellow text-black font-semibold px-3 py-1.5 text-sm hover:brightness-110">Speichern</button>
+          <button onClick={handleSave} className="rounded-md bg-aureum-yellow text-aureum-buttonText font-semibold px-3 py-1.5 text-sm hover:brightness-110">Speichern</button>
         </div>
       </div>
     </div>
   )
 }
-
