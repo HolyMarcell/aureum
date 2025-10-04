@@ -27,9 +27,9 @@ function Content() {
         </button>
         <div className="max-w-3xl mx-auto ">
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight ">
-            <span className="text-aureum-yellow">Aureum</span>
+            <span className="text-aureum-yellow">RadApp Reporting</span>
               <br/>
-            <span className="text-gray-400 text-xl"> Medizinische Sprachaufnahme & Auswertung</span>
+            <span className="text-gray-400 text-xl">KI Gestütze Radiologische Befunde</span>
           </h1>
         </div>
       </header>

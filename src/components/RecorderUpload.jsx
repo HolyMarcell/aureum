@@ -67,11 +67,11 @@ export default function RecorderUpload() {
           disabled={!canProcess}
           className="w-full sm:w-auto flex-1 text-center text-lg font-semibold rounded-2xl px-6 py-6 transition-colors shadow-lg border bg-aureum-yellow text-aureum-buttonText border-aureum-yellow hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Verarbeiten
+          Befund Generieren
         </button>
         <button
           onClick={onUploadClick}
-          className="w-full sm:w-auto sm:flex-none text-center text-lg font-semibold rounded-2xl px-6 py-6 transition-colors shadow-lg border bg-gray-900 border-gray-800 hover:bg-gray-800"
+          className="w-full hidden sm:w-auto sm:flex-none text-center text-lg font-semibold rounded-2xl px-6 py-6 transition-colors shadow-lg border bg-gray-900 border-gray-800 hover:bg-gray-800"
         >
           Oder Datei hochladen
         </button>
