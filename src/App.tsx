@@ -1,5 +1,6 @@
 import React from 'react'
 import { AppProvider, useApp } from './context/AppContext'
+import type { Sections } from './context/AppContext'
 import ProgressBar from './components/ProgressBar'
 import RecorderUpload from './components/RecorderUpload'
 import ParagraphsForm from './components/ParagraphsForm'
@@ -9,7 +10,37 @@ import ConsentDialog from './components/ConsentDialog'
 
 function Content() {
   const { state, reset } = useApp()
-  const [settingsOpen, setSettingsOpen] = React.useState(false)
+  const [settingsOpen, setSettingsOpen] = React.useState<boolean>(false)
+
+  const labels: Record<keyof Sections, string> = {
+    anamnese: 'Anamnese',
+    klinischeFragestellung: 'Klinische Fragestellung',
+    untersuchungsart: 'Untersuchungsart',
+    befund: 'Befund',
+    beurteilung: 'Beurteilung',
+    befundLaien: 'Befund in Laienverständlicher Sprache',
+    beurteilungLaien: 'Beurteilung in Laienverständlicher Sprache',
+  }
+
+  const mailtoHref = React.useMemo(() => {
+    if (state.status !== 'complete') return ''
+    const order: (keyof Sections)[] = [
+      'anamnese',
+      'klinischeFragestellung',
+      'untersuchungsart',
+      'befund',
+      'beurteilung',
+      'befundLaien',
+      'beurteilungLaien',
+    ]
+    // Use CRLF newlines for wider mailto client compatibility (e.g., Thunderbird)
+    const bodyLf = order
+      .map((k) => `${labels[k]}:\n${state.sections[k] || ''}`)
+      .join('\n\n')
+    const bodyText = bodyLf.replace(/\n/g, '\r\n')
+    const subject = 'Radiologischer Befund'
+    return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`
+  }, [state.status, state.sections])
   return (
     <div className="min-h-screen pb-24">
       <ProgressBar />
@@ -59,10 +90,18 @@ function Content() {
 
         <div className="mt-10 flex items-center justify-between">
           <div className="text-xs text-gray-500">Status: {state.status}</div>
-          <button
-            onClick={reset}
-            className="text-sm rounded-md border border-gray-700 px-3 py-1.5 hover:bg-gray-800"
-          >Zurücksetzen</button>
+          <div className="flex items-center gap-3">
+            {state.status === 'complete' && (
+              <a
+                href={mailtoHref}
+                className="text-sm rounded-md bg-aureum-yellow text-aureum-buttonText px-3 py-1.5 hover:brightness-110"
+              >Per E‑Mail teilen</a>
+            )}
+            <button
+              onClick={reset}
+              className="text-sm rounded-md border border-gray-700 px-3 py-1.5 hover:bg-gray-800"
+            >Zurücksetzen</button>
+          </div>
         </div>
       </main>
       {/* Content-blocking popover shown on first visit */}

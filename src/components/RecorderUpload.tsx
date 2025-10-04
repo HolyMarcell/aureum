@@ -3,9 +3,9 @@ import { useApp } from '../context/AppContext'
 
 export default function RecorderUpload() {
   const { state, update, setAudioFromBlob, setAudioFromFile, removeAudio, processAudio } = useApp()
-  const [mediaRecorder, setMediaRecorder] = React.useState(null)
-  const [chunks, setChunks] = React.useState([])
-  const fileInputRef = React.useRef(null)
+  const [mediaRecorder, setMediaRecorder] = React.useState<MediaRecorder | null>(null)
+  const [chunks, setChunks] = React.useState<Blob[]>([])
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null)
 
   const isRecording = state.status === 'recording'
   const inFlight = ['uploading', 'transcribing', 'analyzing'].includes(state.status)
@@ -15,8 +15,8 @@ export default function RecorderUpload() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       const mr = new MediaRecorder(stream, { mimeType: 'audio/webm' })
-      const c = []
-      mr.ondataavailable = (e) => { if (e.data.size > 0) c.push(e.data) }
+      const c: Blob[] = []
+      mr.ondataavailable = (e: BlobEvent) => { if (e.data.size > 0) c.push(e.data) }
       mr.onstop = async () => {
         const blob = new Blob(c, { type: 'audio/webm' })
         setChunks([])
@@ -42,7 +42,7 @@ export default function RecorderUpload() {
   }
 
   const onUploadClick = () => fileInputRef.current?.click()
-  const onFileChange = async (e) => {
+  const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     await setAudioFromFile(file)
@@ -67,7 +67,7 @@ export default function RecorderUpload() {
           disabled={!canProcess}
           className="w-full sm:w-auto flex-1 text-center text-lg font-semibold rounded-2xl px-6 py-6 transition-colors shadow-lg border bg-aureum-yellow text-aureum-buttonText border-aureum-yellow hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Befund Generieren
+          Befund generieren
         </button>
         <button
           onClick={onUploadClick}

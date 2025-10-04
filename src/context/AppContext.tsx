@@ -1,8 +1,36 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from 'react'
 
 const STORAGE_KEY = 'aureum_app_state_v1'
 
-const defaultSections = {
+export type Sections = {
+  anamnese: string
+  klinischeFragestellung: string
+  untersuchungsart: string
+  befund: string
+  beurteilung: string
+  befundLaien: string
+  beurteilungLaien: string
+}
+
+type Status = 'idle' | 'recording' | 'uploading' | 'transcribing' | 'analyzing' | 'complete' | 'error'
+
+type AudioInfo = { name: string; type: string; dataUrl: string } | null
+
+export type AppState = {
+  apiKey: string
+  rememberApiKey: boolean
+  audio: AudioInfo
+  transcript: string
+  sections: Sections
+  progress: number
+  status: Status
+  error: string | null
+  analysisPromptMode: 'standard' | 'concise' | 'custom'
+  customAnalysisPrompt: string
+  consentAccepted: boolean
+}
+
+export const defaultSections: Sections = {
   anamnese: '',
   klinischeFragestellung: '',
   untersuchungsart: '',
@@ -70,7 +98,7 @@ const TRANSCRIBE_MODEL_PRIMARY = 'gpt-4o-transcribe'
 const TRANSCRIBE_MODEL_SECONDARY = 'gpt-4o-mini-transcribe'
 const TRANSCRIBE_MODEL_FALLBACK = 'whisper-1'
 
-const defaultState = {
+const defaultState: AppState = {
   apiKey: '',
   rememberApiKey: true,
   audio: null, // { name, type, dataUrl } or null
@@ -84,14 +112,28 @@ const defaultState = {
   consentAccepted: false,
 }
 
-const AppContext = createContext(null)
+export type AppContextValue = {
+  state: AppState
+  update: (patch: Partial<AppState>) => void
+  reset: () => void
+  setApiKey: (apiKey: string, remember?: boolean) => void
+  setAudioFromBlob: (blob: Blob, name?: string) => Promise<void>
+  setAudioFromFile: (file: File) => Promise<void>
+  removeAudio: () => void
+  setSection: (key: keyof Sections, value: string) => void
+  processAudio: () => Promise<void>
+  defaultSections: Sections
+  acceptConsent: () => void
+}
 
-export function AppProvider({ children }) {
-  const [state, setState] = useState(() => {
+const AppContext = createContext<AppContextValue | null>(null)
+
+export function AppProvider({ children }: { children: ReactNode }) {
+  const [state, setState] = useState<AppState>(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY)
       if (raw) {
-        const parsed = JSON.parse(raw)
+        const parsed = JSON.parse(raw) as Partial<AppState>
         // Merge with defaults to ensure new fields get defaults
         return { ...defaultState, ...parsed }
       }
@@ -108,7 +150,7 @@ export function AppProvider({ children }) {
     }
   }, [state])
 
-  const update = useCallback((patch) => {
+  const update = useCallback((patch: Partial<AppState>) => {
     setState((s) => ({ ...s, ...patch }))
   }, [])
 
@@ -116,16 +158,16 @@ export function AppProvider({ children }) {
     setState({ ...defaultState, apiKey: state.rememberApiKey ? state.apiKey : '' })
   }, [state.rememberApiKey, state.apiKey])
 
-  const setApiKey = useCallback((apiKey, remember = true) => {
+  const setApiKey = useCallback((apiKey: string, remember: boolean = true) => {
     update({ apiKey, rememberApiKey: remember })
   }, [update])
 
-  const setAudioFromBlob = useCallback(async (blob, name = 'aufnahme.webm') => {
+  const setAudioFromBlob = useCallback(async (blob: Blob, name: string = 'aufnahme.webm') => {
     const dataUrl = await blobToDataURL(blob)
     update({ audio: { name, type: blob.type || 'audio/webm', dataUrl } })
   }, [update])
 
-  const setAudioFromFile = useCallback(async (file) => {
+  const setAudioFromFile = useCallback(async (file: File) => {
     const dataUrl = await blobToDataURL(file)
     update({ audio: { name: file.name, type: file.type || 'audio/webm', dataUrl } })
   }, [update])
@@ -134,7 +176,7 @@ export function AppProvider({ children }) {
     update({ audio: null })
   }, [update])
 
-  const setSection = useCallback((key, value) => {
+  const setSection = useCallback((key: keyof Sections, value: string) => {
     update({ sections: { ...state.sections, [key]: value } })
   }, [state.sections, update])
 
@@ -174,7 +216,7 @@ export function AppProvider({ children }) {
     }
   }, [state.apiKey, state.audio, state.status])
 
-  const value = useMemo(() => ({
+  const value = useMemo<AppContextValue>(() => ({
     state,
     update,
     reset,
@@ -198,22 +240,22 @@ export function useApp() {
 }
 
 // Helpers
-async function blobToDataURL(blob) {
+async function blobToDataURL(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
-    reader.onloadend = () => resolve(reader.result)
+    reader.onloadend = () => resolve(reader.result as string)
     reader.onerror = reject
     reader.readAsDataURL(blob)
   })
 }
 
-async function dataURLToBlob(dataUrl) {
+async function dataURLToBlob(dataUrl: string): Promise<Blob> {
   const res = await fetch(dataUrl)
   return await res.blob()
 }
 
-async function transcribeWithWhisper(blob, apiKey) {
-  const tryModel = async (model) => {
+async function transcribeWithWhisper(blob: Blob, apiKey: string): Promise<string> {
+  const tryModel = async (model: string) => {
     const form = new FormData()
     const file = new File([blob], 'audio.webm', { type: blob.type || 'audio/webm' })
     form.append('file', file)
@@ -245,10 +287,10 @@ async function transcribeWithWhisper(blob, apiKey) {
   }
 }
 
-async function analyzeTranscript(transcript, apiKey, system) {
+async function analyzeTranscript(transcript: string, apiKey: string, system: string) {
   const user = `Transkript:\n\n${transcript}`
 
-  const postChat = async (model) => {
+  const postChat = async (model: string) => {
     const body = {
       model,
       messages: [
@@ -283,7 +325,7 @@ async function analyzeTranscript(transcript, apiKey, system) {
   }
 }
 
-function extractJSON(text) {
+function extractJSON(text: string): any {
   // Try direct parse
   try { return JSON.parse(text) } catch {}
   // Try code block fenced JSON
@@ -301,8 +343,8 @@ function extractJSON(text) {
   throw new Error('Konnte JSON-Antwort nicht parsen.')
 }
 
-function normalizeSections(obj) {
-  const s = { ...defaultSections }
+function normalizeSections(obj: unknown) {
+  const s: Sections = { ...defaultSections }
   if (!obj || typeof obj !== 'object') return s
   const map = {
     anamnese: 'anamnese',
@@ -313,13 +355,13 @@ function normalizeSections(obj) {
     befundLaien: 'befundLaien',
     beurteilungLaien: 'beurteilungLaien',
   }
-  for (const k of Object.keys(map)) {
-    const v = obj[k]
+  for (const k of Object.keys(map) as (keyof Sections)[]) {
+    const v = (obj as any)[k]
     if (typeof v === 'string') s[k] = v
   }
   return s
 }
 
-async function safeText(res) {
+async function safeText(res: Response): Promise<string> {
   try { return await res.text() } catch { return '' }
 }

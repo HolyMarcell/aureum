@@ -3,9 +3,9 @@ import { useApp } from '../context/AppContext'
 
 export default function ApiKeyInput() {
   const { state, setApiKey } = useApp()
-  const [key, setKey] = React.useState(state.apiKey || '')
-  const [remember, setRemember] = React.useState(state.rememberApiKey)
-  const [expanded, setExpanded] = React.useState(!state.apiKey)
+  const [key, setKey] = React.useState<string>(state.apiKey || '')
+  const [remember, setRemember] = React.useState<boolean>(state.rememberApiKey)
+  const [expanded, setExpanded] = React.useState<boolean>(!state.apiKey)
 
   React.useEffect(() => {
     setKey(state.apiKey || '')
@@ -47,7 +47,7 @@ export default function ApiKeyInput() {
         type="password"
         placeholder="sk-..."
         value={key}
-        onChange={(e) => setKey(e.target.value)}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setKey(e.target.value)}
         className="mt-2 w-full rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 outline-none focus:ring-2 focus:ring-aureum-yellow/60"
       />
       <div className="mt-2 flex items-center justify-between">
@@ -55,7 +55,7 @@ export default function ApiKeyInput() {
           <input
             type="checkbox"
             checked={remember}
-            onChange={(e) => setRemember(e.target.checked)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRemember(e.target.checked)}
             className="accent-aureum-yellow"
           />
           In diesem Browser merken (LocalStorage)

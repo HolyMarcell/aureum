@@ -1,18 +1,19 @@
 import React from 'react'
-import { useApp } from '../context/AppContext'
-import { ANALYSIS_PROMPT_PRESETS } from '../context/AppContext'
+import { useApp, ANALYSIS_PROMPT_PRESETS } from '../context/AppContext'
 
-export default function SettingsDialog({ onClose }) {
+type Props = { onClose?: () => void }
+
+export default function SettingsDialog({ onClose }: Props) {
   const { state, update } = useApp()
-  const [mode, setMode] = React.useState(state.analysisPromptMode || 'standard')
-  const [custom, setCustom] = React.useState(state.customAnalysisPrompt || '')
+  const [mode, setMode] = React.useState<'standard' | 'concise' | 'custom'>(state.analysisPromptMode || 'standard')
+  const [custom, setCustom] = React.useState<string>(state.customAnalysisPrompt || '')
 
   const handleSave = () => {
     update({ analysisPromptMode: mode, customAnalysisPrompt: custom })
     onClose?.()
   }
 
-  const renderPresetPreview = (text) => (
+  const renderPresetPreview = (text: string) => (
     <div className="mt-2 max-h-40 overflow-auto rounded-md bg-gray-950 border border-gray-800 p-2 text-xs text-gray-300 whitespace-pre-wrap">
       {text}
     </div>
@@ -82,7 +83,7 @@ export default function SettingsDialog({ onClose }) {
                     placeholder="Eigenen System-Prompt hier eingeben…"
                     className="mt-2 w-full rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 outline-none focus:ring-2 focus:ring-aureum-yellow/60 text-sm"
                     value={custom}
-                    onChange={(e) => setCustom(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setCustom(e.target.value)}
                     disabled={mode !== 'custom'}
                   />
                   {mode !== 'custom' && (
