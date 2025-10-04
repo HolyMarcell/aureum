@@ -63,8 +63,11 @@ Richtlinien:
 
 // Preferred models (with safe fallbacks)
 const ANALYSIS_MODEL_PRIMARY = 'gpt-5'
-const ANALYSIS_MODEL_FALLBACK = 'gpt-4o-mini'
-const TRANSCRIBE_MODEL_PRIMARY = 'gpt-5-transcribe'
+// Prefer full 4o over mini for significantly better quality
+const ANALYSIS_MODEL_FALLBACK = 'gpt-4o'
+// Audio transcription: prefer 4o-transcribe, then mini, then Whisper
+const TRANSCRIBE_MODEL_PRIMARY = 'gpt-4o-transcribe'
+const TRANSCRIBE_MODEL_SECONDARY = 'gpt-4o-mini-transcribe'
 const TRANSCRIBE_MODEL_FALLBACK = 'whisper-1'
 
 const defaultState = {
@@ -216,8 +219,8 @@ async function transcribeWithWhisper(blob, apiKey) {
     form.append('file', file)
     form.append('model', model)
     form.append('response_format', 'json')
-    // Optional: set explicit language for better accuracy
-    // form.append('language', 'de')
+    // Hint target language (German) for improved accuracy
+    form.append('language', 'de')
 
     const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
@@ -232,12 +235,13 @@ async function transcribeWithWhisper(blob, apiKey) {
     return data.text || ''
   }
 
-  // Try ChatGPT 5 transcription-capable model first, then fallback
-  try {
-    return await tryModel(TRANSCRIBE_MODEL_PRIMARY)
-  } catch (e) {
-    console.warn('Primary transcription model failed, falling back:', e?.message)
-    return await tryModel(TRANSCRIBE_MODEL_FALLBACK)
+  // Try preferred models in order, then final fallback
+  try { return await tryModel(TRANSCRIBE_MODEL_PRIMARY) } catch (e1) {
+    console.warn('Primary transcription model failed, trying secondary:', e1?.message)
+    try { return await tryModel(TRANSCRIBE_MODEL_SECONDARY) } catch (e2) {
+      console.warn('Secondary transcription model failed, falling back:', e2?.message)
+      return await tryModel(TRANSCRIBE_MODEL_FALLBACK)
+    }
   }
 }
 
@@ -247,7 +251,6 @@ async function analyzeTranscript(transcript, apiKey, system) {
   const postChat = async (model) => {
     const body = {
       model,
-      temperature: 0.2,
       messages: [
         { role: 'system', content: system },
         { role: 'user', content: user },
